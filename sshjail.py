@@ -7,7 +7,6 @@ import pipes
 from ansible.errors import AnsibleError
 from ansible.plugins.connection.ssh import Connection as SSHConnection
 from ansible.module_utils._text import to_text
-from ansible.plugins.loader import get_shell_plugin
 from contextlib import contextmanager
 
 __metaclass__ = type
@@ -388,9 +387,7 @@ class Connection(ConnectionBase):
 
         if self._play_context.become:
             # display.debug("_low_level_execute_command(): using become for this command")
-            plugin = self.become
-            shell = get_shell_plugin(executable=executable)
-            cmd = plugin.build_become_command(cmd, shell)
+            cmd = self._play_context.make_become_cmd(cmd)
 
         # display.vvv("JAIL (%s) %s" % (local_cmd), host=self.host)
         return super(Connection, self).exec_command(cmd, in_data, True)
@@ -401,10 +398,8 @@ class Connection(ConnectionBase):
         normpath = os.path.normpath(path)
         return os.path.join(prefix, normpath[1:])
 
-    def _copy_file(self, from_file, to_file, executable='/bin/sh'):
-        plugin = self.become
-        shell = get_shell_plugin(executable=executable)
-        copycmd = plugin.build_become_command(' '.join(['cp', from_file, to_file]), shell)
+    def _copy_file(self, from_file, to_file):
+        copycmd = self._play_context.make_become_cmd(' '.join(['cp', from_file, to_file]))
 
         display.vvv(u"REMOTE COPY {0} TO {1}".format(from_file, to_file), host=self.inventory_hostname)
         code, stdout, stderr = self._jailhost_command(copycmd)
